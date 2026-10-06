@@ -1,0 +1,51 @@
+{
+  "name": "@profullstack/webhooks",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Standard Webhooks signing, verification and delivery with retries. Zero dependencies.",
+  "keywords": [
+    "webhooks",
+    "standard-webhooks",
+    "cloudevents",
+    "hmac",
+    "signature",
+    "retry",
+    "hono",
+    "bun"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/profullstack/webhooks.git"
+  },
+  "homepage": "https://github.com/profullstack/webhooks#readme",
+  "bugs": {
+    "url": "https://github.com/profullstack/webhooks/issues"
+  },
+  "license": "MIT",
+  "author": "Profullstack, LLC",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./src/index.js",
+  "types": "./index.d.ts",
+  "files": [
+    "src",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --test && bun test"
+  }
+}
