@@ -64,7 +64,8 @@ What it does for you:
   10 min, 1 h, 6 h, 24 h, 48 h (`backoffMs`), each endpoint in order. 20 failures in a row switch the
   endpoint off (`disableAfter`); turning it back on clears the count.
 - **URLs** must be https and resolve only to public addresses, checked when saved and before every
-  delivery (`checkUrl`; `guard: { allowHttp, allowPrivate }` for development).
+  delivery (`checkUrl`; `guard: { allowHttp, allowPrivate }` for development). Redirects are never
+  followed (a 3xx is a failed delivery), so a checked URL cannot bounce a delivery somewhere unchecked.
 - **Secrets** are `whsec_` keys, shown on create, `secret` and `rotate`. Pass
   `secretBox: { seal, open }` to keep them encrypted at rest.
 - **Stores**: `sqliteStore(db)` (bun:sqlite, node:sqlite, better-sqlite3; creates its tables),

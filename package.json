@@ -1,6 +1,6 @@
 {
   "name": "@profullstack/webhooks",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Webhooks for every app: Standard Webhooks signing, CloudEvents payloads, customer endpoints with keys and event filters, a durable outbox with retries, delivery logs, SSRF-safe URLs and a drop-in API. Zero dependencies.",
   "keywords": [

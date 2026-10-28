@@ -27,11 +27,14 @@ async function postOnce(url, body, headers, timeoutMs, fetchImpl) {
     controller.abort();
   }, timeoutMs);
   try {
-    const res = await fetchImpl(url, { method: 'POST', headers, body, signal: controller.signal });
+    // Never follow a redirect: the URL was checked, where it points was not. A public URL
+    // answering 302 to 169.254.169.254 would otherwise walk us into our own network.
+    const res = await fetchImpl(url, { method: 'POST', headers, body, signal: controller.signal, redirect: 'manual' });
     // Free the connection; the response body is not part of the result.
     try {
       await res.body?.cancel?.();
     } catch {}
+    if (res.status >= 300 && res.status < 400) return { status: res.status, error: `redirect refused (HTTP ${res.status}); use the final URL` };
     return { status: res.status };
   } catch (err) {
     const error = timedOut

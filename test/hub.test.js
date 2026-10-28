@@ -226,3 +226,24 @@ describe('webhooksApi', () => {
     assert.equal((await call('GET', `/api/v1/webhooks/${endpoint.id}`)).status, 404);
   });
 });
+
+describe('redirects', () => {
+  it('a delivery never follows a redirect, so a public URL cannot bounce us into our own network', async () => {
+    const seen = [];
+    let internalHit = false;
+    const fetchImpl = async (url, init) => {
+      seen.push({ url: String(url), redirect: init.redirect });
+      if (String(url).startsWith('http://169.254.169.254')) internalHit = true;
+      return new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/latest/meta-data' } });
+    };
+    const hooks = new Webhooks({ store: memoryStore(), fetchImpl, guard: { lookup: async () => ['93.184.216.34'] } });
+    await hooks.createEndpoint('u1', { url: 'https://hooks.example.com/a' });
+    await hooks.emit('u1', 'x.happened', {});
+    await hooks.drain();
+    assert.equal(internalHit, false);
+    assert.equal(seen[0].redirect, 'manual');
+    const [log] = await hooks.deliveries('u1');
+    assert.equal(log.last_status, 302);
+    assert.match(log.last_error, /redirect refused/);
+  });
+});
