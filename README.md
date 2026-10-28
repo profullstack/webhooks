@@ -1,6 +1,9 @@
 # @profullstack/webhooks
 
-Standard Webhooks signing, verification and delivery with retries. Zero dependencies.
+Standard Webhooks signing, verification and delivery with retries, plus the
+whole "webhooks" feature an app offers its customers: endpoints with signing
+keys, event filters, a durable outbox with backoff, a delivery log, test pings,
+SSRF-safe URLs and a drop-in `/webhooks` API. Zero dependencies.
 
 Every app in the fleet that sends or receives a webhook does it the same way:
 a [CloudEvents 1.0](https://cloudevents.io/) JSON body, signed per the
@@ -17,6 +20,62 @@ npm i @profullstack/webhooks
 # or
 bun add @profullstack/webhooks
 ```
+
+## Give your app webhooks (the hub)
+
+Every fleet app with an API offers customers a webhook callback the same way:
+
+```js
+import { Webhooks, sqliteStore, webhooksApi } from '@profullstack/webhooks';
+
+const hooks = new Webhooks({
+  store: sqliteStore(db),                  // or postgresStore(pool), memoryStore()
+  source: 'https://group.call.pit.world',  // CloudEvents source
+  eventTypes: ['room.joined', 'room.left', 'recording.ready'],
+}).start();                                // drains due deliveries every 5 s
+
+// Mount the API (any framework: it is a fetch handler that returns null when the path is not its own).
+const api = webhooksApi(hooks, { basePath: '/api/v1/webhooks', owner: async (req) => (await userFrom(req))?.id });
+app.all('/api/v1/webhooks/*', async (c) => (await api(c.req.raw)) ?? c.notFound());
+app.all('/api/v1/webhooks', async (c) => (await api(c.req.raw)) ?? c.notFound());
+
+// Wherever something happens:
+await hooks.emit(user.id, 'room.joined', { code: '4821', who: 'Anthony' }, { subject: 'room:4821' });
+```
+
+| Route (under basePath) | Does |
+| --- | --- |
+| `GET /` | endpoints + the app's `event_types` |
+| `POST /` `{ url, events?, description? }` | new endpoint; returns `{ endpoint, secret }` |
+| `GET / PATCH / DELETE /:id` | read, change (`url`, `events`, `description`, `enabled`), remove |
+| `GET /:id/secret`, `POST /:id/rotate` | show the secret, or replace it |
+| `POST /:id/test` | sends `webhook.test` now and says how it went |
+| `GET /:id/deliveries`, `GET /deliveries` | the delivery log, with payloads |
+| `POST /deliveries/:id/retry` | send one again |
+
+What it does for you:
+
+- **Payloads** are CloudEvents 1.0 JSON with `webhook-id`, `webhook-timestamp`, `webhook-signature`
+  (Standard Webhooks) and `webhook-event` headers. Receivers verify with `verifySignature` or any
+  Standard Webhooks library, and dedupe on `webhook-id` (delivery is at least once).
+- **Events** are patterns: `*`, `room.joined`, `room.*`. With `eventTypes` set, a pattern that
+  matches nothing is refused.
+- **Retries** live in the store, so a restart loses nothing: after a failure it waits 30 s, 2 min,
+  10 min, 1 h, 6 h, 24 h, 48 h (`backoffMs`), each endpoint in order. 20 failures in a row switch the
+  endpoint off (`disableAfter`); turning it back on clears the count.
+- **URLs** must be https and resolve only to public addresses, checked when saved and before every
+  delivery (`checkUrl`; `guard: { allowHttp, allowPrivate }` for development).
+- **Secrets** are `whsec_` keys, shown on create, `secret` and `rotate`. Pass
+  `secretBox: { seal, open }` to keep them encrypted at rest.
+- **Stores**: `sqliteStore(db)` (bun:sqlite, node:sqlite, better-sqlite3; creates its tables),
+  `postgresStore(pool)` (anything with pg's `query`; run `schemaSql('pg')` in your migrations or
+  pass `{ migrate: true }`), `memoryStore()`. `prefix` namespaces the two tables.
+- **Moving an app that signed its own way**: keep its old header next to the new ones until
+  customers switch, with `extraHeaders: tV1Header('x-coinpay-signature')` (`t=,v1=hex`),
+  `sha256Header(name)` (`sha256=hex`) or `hexHeader(name)`; `combineHeaders(...)` for several.
+
+Surfaces: the house rule is API + CLI + MCP for every feature. The CLI and MCP of an app wrap these
+routes with its own key (`groupcall webhooks ...`, MCP `create_webhook`, ...).
 
 ## Make a secret
 

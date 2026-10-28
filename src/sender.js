@@ -55,6 +55,7 @@ export async function sendWebhook(
     fetchImpl = globalThis.fetch,
     headers = {},
     onAttempt,
+    id: givenId,
   } = {},
 ) {
   if (!url) throw new Error('sendWebhook: url required');
@@ -64,7 +65,9 @@ export async function sendWebhook(
   const isString = typeof event === 'string';
   const body = isString ? event : JSON.stringify(event);
   const id =
-    (!isString && event && typeof event.id === 'string' && event.id) || `msg_${randomUUID()}`;
+    givenId ||
+    (!isString && event && typeof event.id === 'string' && event.id) ||
+    `msg_${randomUUID()}`;
   const contentType =
     !isString && event && event.specversion ? 'application/cloudevents+json' : 'application/json';
   const delays = retryDelaysMs.length ? retryDelaysMs : [0];
