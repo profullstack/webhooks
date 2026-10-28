@@ -41,9 +41,13 @@ async function sqliteDb() {
   try {
     const { Database } = await import('bun:sqlite');
     return new Database(':memory:');
-  } catch {
+  } catch {}
+  try {
     const { DatabaseSync } = await import('node:sqlite');
     return new DatabaseSync(':memory:');
+  } catch {
+    // Node 20 has neither bun:sqlite nor node:sqlite (added in 22.5).
+    return null;
   }
 }
 
@@ -187,8 +191,9 @@ describe('Webhooks', () => {
     assert.match(rx.got[0].headers['x-coinpay-signature'], /^t=\d+,v1=[0-9a-f]{64}$/);
   });
 
-  it('a SQLite store keeps pending deliveries for the next process', async () => {
+  it('a SQLite store keeps pending deliveries for the next process', async (t) => {
     const db = await sqliteDb();
+    if (!db) return t.skip('no SQLite driver in this runtime');
     const first = hub({ store: sqliteStore(db), statuses: [503] });
     const { endpoint } = await first.hooks.createEndpoint('u1', { url: 'https://hooks.example.com/a', events: ['a.*', 'b.c'] });
     await first.hooks.emit('u1', 'a.b', { n: 1 });
